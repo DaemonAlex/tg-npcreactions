@@ -2,6 +2,8 @@
 
 [Standalone] NPC Reacts Player Held Weapon FiveM Script
 
+[Preview Video](https://streamable.com/lvv0ix)
+
 ## What it does
 
 When a player walks near NPCs with a visible threatening weapon, nearby NPCs notice the danger and react before any shot is fired. Depending on distance and aiming state, they may hesitate for a short moment, look toward the player, then flee.
