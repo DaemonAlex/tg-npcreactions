@@ -60,13 +60,11 @@ local defaults = {
     hesitationMax = 1200,
     fleeDistance = 100.0,
     fleeTime = 15000,
-    pedServerMaxDistance = 80.0,
     panicSpreadDelay = 450,
     panicSpreadCooldown = 12000,
     vehicleRequireFacingPlayer = true,
     vehicleRequireLineOfSight = false,
     vehicleVisionAngle = 120.0,
-    vehicleServerMaxDistance = 80.0,
     ignoreMissionVehicleDrivers = true,
     ignoreDeadOrDying = true,
 
@@ -161,6 +159,14 @@ local function getDriverVehicle(ped)
 end
 
 local function isThreatWeapon(playerPed)
+    -- Weapon must actually be drawn (in hand), not just selected-but-holstered.
+    -- GetSelectedPedWeapon still returns the pistol when a holster script has it
+    -- put away, so without this NPCs react to a weapon nobody can see — which
+    -- contradicts the "visible threatening weapon" behaviour this script promises.
+    if not IsPedArmed(playerPed, 7) then
+        return false
+    end
+
     local weapon = GetSelectedPedWeapon(playerPed)
 
     if ignoredWeapons[weapon] then
@@ -356,8 +362,8 @@ local function makePedReact(ped, playerPed, instant, allowSpread)
     end
 end
 
-local function requestPedReaction(ped, playerPed, now, instant, allowSpread)
-    reactedPeds[ped] = now + pedSettings.ReactionCooldown
+local function requestPedReaction(ped, playerPed, now, instant, allowSpread, cooldown)
+    reactedPeds[ped] = now + (cooldown or pedSettings.ReactionCooldown)
 
     if not pedSettings.ServerSync then
         makePedReact(ped, playerPed, instant, allowSpread)
@@ -549,8 +555,10 @@ local function processPanicSpread(playerPed, now)
                             reactedPeds[nearbyPed] = now + pedSettings.ReactionCooldown
                             requestGangReaction(nearbyPed, sourcePlayerPed, now)
                         else
-                            reactedPeds[nearbyPed] = now + defaults.panicSpreadCooldown
-                            requestPedReaction(nearbyPed, sourcePlayerPed, now, false, false)
+                            -- Spread reactions use the shorter panic-spread cooldown so a
+                            -- crowd can ripple; pass it through instead of letting
+                            -- requestPedReaction overwrite it with the full cooldown.
+                            requestPedReaction(nearbyPed, sourcePlayerPed, now, false, false, defaults.panicSpreadCooldown)
                         end
 
                         spreadCount = spreadCount + 1
@@ -624,7 +632,9 @@ CreateThread(function()
             and (general.ReactWhenPlayerInVehicle or not IsPedInAnyVehicle(playerPed, false))
             and isThreatWeapon(playerPed)
         then
-            local isAiming = IsPlayerFreeAiming(PlayerId())
+            -- Include assisted/lock-on aim (controllers) so those players trigger
+            -- the same faster-scan + forced-panic behaviour as free-aim.
+            local isAiming = IsPlayerFreeAiming(PlayerId()) or IsPlayerTargettingAnything(PlayerId())
             sleep = isAiming and general.AimingScanInterval or general.ArmedScanInterval
 
             scanNearbyPeds(playerPed, now, isAiming)
