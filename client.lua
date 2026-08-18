@@ -460,6 +460,11 @@ RegisterNetEvent('tg-npcreactions:applyReaction', function(reactionType, entityN
         return
     end
 
+    -- Defense in depth: never apply reactions to a player's ped
+    if IsPedAPlayer(entity) then
+        return
+    end
+
     local playerPed = GetPlayerPed(sourcePlayer)
 
     if playerPed == 0 or not DoesEntityExist(playerPed) then

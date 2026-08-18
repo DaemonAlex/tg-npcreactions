@@ -40,7 +40,18 @@ local function requestReaction(entityNetId, vehicleNetId, reactionType, cooldown
         return
     end
 
+    -- The target must be a real NPC ped. Without this a client could pass another
+    -- PLAYER's ped net id and have that player's own client mutate their ped
+    -- (combat attributes, flee tasks, ClearPedSecondaryTask).
+    if GetEntityType(entity) ~= 1 or IsPedAPlayer(entity) then
+        return
+    end
+
     if reactionType == 'driver' then
+        if type(vehicleNetId) ~= 'number' then
+            return
+        end
+
         local vehicle = NetworkGetEntityFromNetworkId(vehicleNetId)
 
         if vehicle == 0 or GetPedInVehicleSeat(vehicle, -1) ~= entity then
